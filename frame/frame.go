@@ -5,6 +5,10 @@ import (
 	"io"
 )
 
+const frameHeaderLen = 9
+
+var padZeores = make([]byte, 255) // zero for padding
+
 type FrameType uint8
 
 const (
@@ -93,16 +97,50 @@ func (e H2Error) Error() string {
 	return e.ErrorCode.String()
 }
 
+// Flags is a bitmask of HTTP/2 flags.
+// The meaning of flags varies depending on the frame type.
 type Flag uint8
 
+// Has reports whether f contains all (0 or more) flag in v.
+func (f Flag) Has(v Flag) bool {
+	return (f & v) == v
+}
+
+// Frame-specific FrameHeader flag bits.
 const (
-	UNSET       Flag = 0x0
-	END_STREAM       = 0x1
-	ACK              = 0x1
-	END_HEADERS      = 0x4
-	PADDED           = 0x8
-	PRIORITY         = 0x20
+	UNSET Flag = 0x0
+	// Data
+	DATA_END_STREAM = 0x1
+	DATA_PADDED     = 0x8
+	// header
+	HEADERS_END_STREAM  = 0x1
+	HEADERS_END_HEADERS = 0x4
+	HEADERS_PADDED      = 0x8
+	HEADERS_PRIORITY    = 0x20
+
+	PING_ACK = 0x1
+
+	CONTINUAION_END_HEADERS  = 0x4
+	PUSH_PROMISE_END_HEADERS = 0x4
+	PUSH_PROMISE_PADDED      = 0x8
 )
+
+func (f Flag) String() string {
+	flags := []string{
+		"UNSER",
+		"DATA_END_STREAM",
+		"DATA_PADDED",
+		"HEADERS_END_STREAM",
+		"HEADERS_END_HEADERS",
+		"HEADERS_PADDED",
+		"HEADERS_PRIORITY",
+		"PING_ACK",
+		"CONTINUATION_END_HEADERS",
+		"PUSH_PROMISE_END_HEADERS",
+		"PUSH_PROMISE_PADDED",
+	}
+	return flags[int(f)]
+}
 
 type Frame interface {
 	Write(w io.Writer) error

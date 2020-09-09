@@ -1,1 +1,3 @@
-module "minimalist-http2"
+module minimalist-http2
+
+go 1.15
