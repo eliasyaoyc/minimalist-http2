@@ -168,3 +168,107 @@ type FrameHeader struct {
 	MaxFrameSize      int32
 	MaxHeaderListSize int32
 }
+
+func NewFrameHeader(length uint32, types FrameType, flags Flag, streamID uint32) *FrameHeader {
+	return &FrameHeader{
+		Length:   length,
+		Type:     types,
+		Flags:    flags,
+		StreamID: streamID,
+	}
+}
+
+func (f FrameHeader) Write(w io.Writer) error {
+	panic("implement me")
+}
+
+func (f FrameHeader) Read(r io.Writer) error {
+	panic("implement me")
+}
+
+func (f FrameHeader) Header() *FrameHeader {
+	panic("implement me")
+}
+
+func (f FrameHeader) String() string {
+	panic("implement me")
+}
+
+// SETTINGS FRAME     section 6.5.1
+// +-------------------------------+
+// |       Identifier (16)         |
+// +-------------------------------+-------------------------------+
+// |                        Value (32)                             |
+// +---------------------------------------------------------------+
+type SettingsID uint16
+
+const (
+	SETTINGS_HEADER_TABLE_SIZE      SettingsID = 0x1
+	SETTINGS_ENABLE_PUSH                       = 0x2
+	SETTINGS_MAX_CONCURRENT_STREAMS            = 0x3
+	SETTINGS_INITIAL_WINDOW_SIZE               = 0x4
+	SETTINGS_MAX_FRAME_SIZE                    = 0x5
+	SETTINGS_MAX_HEADER_LIST_SIZE              = 0x6
+)
+
+const (
+	DEFAULT_HEADER_TABLE_SIZE      int32 = 4096
+	DEFAULT_ENABLE_PUSH                  = 1
+	DEFAULT_MAX_CONCURRENT_STREAMS       = 2<<30 - 1
+	DEFAULT_INITIAL_WINDOW_SIZE          = 65535
+	DEFAULT_MAX_FRAME_SIZE               = 16384
+	DEFAULT_MAX_HEADER_LIST_SIZE         = 2<<30 - 1
+)
+
+// PUSH_PROMISE  section 6.6
+//  +---------------+
+// |Pad Length? (8)|
+// +-+-------------+-----------------------------------------------+
+// |R|                  Promised Stream ID (31)                    |
+// +-+-----------------------------+-------------------------------+
+// |                   Header Block Fragment (*)                 ...
+// +---------------------------------------------------------------+
+// |                           Padding (*)                       ...
+// +---------------------------------------------------------------+
+
+type PushPromiseFrame struct {
+	*FrameHeader
+	PadLength           uint8
+	PromisedStreamId    uint32 // R + promisedStreamId
+	HeaderBlockFragment []byte
+	Padding             []byte
+}
+
+func NewPushPromiseFrame(flags Flag, streamId, promisedStreamId uint32, headerBlockFragment, padding []byte) *PushPromiseFrame {
+	var padded bool = flags&HEADERS_PADDED == HEADERS_PADDED
+	length := 4 + len(headerBlockFragment)
+
+	if padded {
+		length = length + len(padding) + 1
+	}
+	fh := NewFrameHeader(uint32(length), PushPromiseFrameType, flags, streamId)
+
+	return &PushPromiseFrame{
+		FrameHeader:         fh,
+		PadLength:           uint8(len(padding)),
+		PromisedStreamId:    promisedStreamId,
+		HeaderBlockFragment: headerBlockFragment,
+		Padding:             padding,
+	}
+}
+
+func (f *PushPromiseFrame) Write(w io.Writer) error {
+	panic("implement me")
+}
+
+func (f *PushPromiseFrame) Read(r io.Writer) error {
+	panic("implement me")
+}
+
+func (f *PushPromiseFrame) Header() *FrameHeader {
+	panic("implement me")
+}
+
+func (f *PushPromiseFrame) String() string {
+	panic("implement me")
+}
