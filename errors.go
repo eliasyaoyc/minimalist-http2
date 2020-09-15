@@ -71,3 +71,16 @@ type goAwayFlowError struct {
 func (g goAwayFlowError) Error() string {
 	return "connection exceeded flow control windwo size"
 }
+
+type H2Error struct {
+	ErrCode             ErrCode
+	AdditionalDebugData string
+}
+
+func (e H2Error) String() string {
+	return fmt.Sprintf("%v(%v)", e.ErrCode, e.AdditionalDebugData)
+}
+
+func (e H2Error) Error() string {
+	return e.ErrCode.String()
+}

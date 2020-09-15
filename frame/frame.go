@@ -1,8 +1,8 @@
 package frame
 
 import (
-	"fmt"
 	"io"
+	"minimalist-http2"
 	"net/http"
 )
 
@@ -44,58 +44,6 @@ func (frameType FrameType) String() string {
 		"ORIGIN",
 	}
 	return types[int(frameType)]
-}
-
-type ErrorCode uint32
-
-const (
-	NO_ERROR            ErrorCode = 0x0
-	PROTOCOL_ERROR      ErrorCode = 0x1
-	INTERNAL_ERROR      ErrorCode = 0x2
-	FLOW_CONTROL_ERROR  ErrorCode = 0x3
-	SETTINGS_TIMEOUT    ErrorCode = 0x4
-	STREAM_CLOSED       ErrorCode = 0x5
-	FRAME_SIZE_ERROR    ErrorCode = 0x6
-	REFUSED_STREAM      ErrorCode = 0x7
-	CANCEL              ErrorCode = 0x8
-	COMPRESSION_ERROR   ErrorCode = 0x9
-	CONNECT_ERROR       ErrorCode = 0xa
-	ENHANCE_YOUR_CALM   ErrorCode = 0xb
-	INADEQUATE_SECURITY ErrorCode = 0xc
-	HTTP_1_1_REQUIRED   ErrorCode = 0xd
-)
-
-func (e ErrorCode) String() string {
-	errors := []string{
-		"NO_ERROR",
-		"PROTOCOL_ERROR",
-		"INTERNAL_ERROR",
-		"FLOW_CONTROL_ERROR",
-		"SETTINGS_TIMEOUT",
-		"STREAM_CLOSED",
-		"FRAME_SIZE_ERROR",
-		"REFUSED_STREAM",
-		"CANCEL",
-		"COMPRESSION_ERROR",
-		"CONNECT_ERROR",
-		"ENHANCE_YOUR_CALM",
-		"INADEQUATE_SECURITY",
-		"HTTP_1_1_REQUIRED",
-	}
-	return errors[int(e)]
-}
-
-type H2Error struct {
-	ErrorCode           ErrorCode
-	AdditionalDebugData string
-}
-
-func (e H2Error) String() string {
-	return fmt.Sprintf("%v(%v)", e.ErrorCode, e.AdditionalDebugData)
-}
-
-func (e H2Error) Error() string {
-	return e.ErrorCode.String()
 }
 
 // Flags is a bitmask of HTTP/2 flags.
@@ -359,15 +307,15 @@ func (f *PriorityFrame) String() string {
 // +---------------------------------------------------------------+
 type RstStreamFrame struct {
 	*HeaderFrame
-	ErrorCode ErrorCode
+	ErrCode minimalist_http2.ErrCode
 }
 
-func NewRstStreamFrame(streamID uint32, errorCode ErrorCode) *RstStreamFrame {
+func NewRstStreamFrame(streamID uint32, errorCode minimalist_http2.ErrCode) *RstStreamFrame {
 	var length uint32 = 4
 
 	return &RstStreamFrame{
 		HeaderFrame: NewFrameHeader(length, RstStreamFrameType, UNSET, streamID),
-		ErrorCode:   errorCode,
+		ErrCode:     errorCode,
 	}
 }
 
@@ -513,11 +461,11 @@ func (f *PingFrame) String() string {
 type GoAwayFrame struct {
 	*HeaderFrame
 	LastStreamID        uint32
-	ErrorCode           ErrorCode
+	ErrorCode           minimalist_http2.ErrCode
 	AdditionalDebugData []byte
 }
 
-func NewGoAwayFrame(streamID uint32, lastStreamID uint32, errorCode ErrorCode, additionalDebugData []byte) *GoAwayFrame {
+func NewGoAwayFrame(streamID uint32, lastStreamID uint32, errorCode minimalist_http2.ErrCode, additionalDebugData []byte) *GoAwayFrame {
 	var length = 8 + len(additionalDebugData)
 
 	return &GoAwayFrame{
