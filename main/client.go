@@ -1,0 +1,77 @@
+package main
+
+import (
+	"bytes"
+	"flag"
+	"fmt"
+	"github.com/Jxck/logger"
+	"io/ioutil"
+	minimalist_http2 "minimalist-http2"
+	"net/http"
+	"os"
+)
+
+var (
+	nullout  bool
+	post     string
+	logLevel int
+)
+
+func init() {
+	f := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	f.BoolVar(&nullout, "n", false, "null output")
+	f.StringVar(&post, "d", "", "send post data")
+	f.IntVar(&logLevel, "l", 0, logger.Help())
+	f.Parse(os.Args[1:])
+	for 0 < f.NArg() {
+		f.Parse(f.Args()[1:])
+	}
+	logger.Level(logLevel)
+}
+
+func main() {
+	defer func() {
+		err := recover()
+		if err != nil {
+			fmt.Println(`
+# usage
+$ go run main/client.go http://localhost:3000 -l 4 -d "data to send" -n
+`)
+		}
+	}()
+	url := os.Args[1]
+
+	transport := &minimalist_http2.Transport{
+		CertPath: "keys/cert.pem",
+		KeyPath:  "keys/key.pem",
+	}
+	client := &http.Client{
+		Transport: transport,
+	}
+
+	var res *http.Response
+	var err error
+	if post == "" {
+		// GET
+		res, err = client.Get(url)
+		if err != nil {
+			logger.Fatal("%v", err)
+		}
+	} else {
+		// POST
+		buf := bytes.NewBufferString(post)
+		res, err = client.Post(url, "text/plain", buf)
+		if err != nil {
+			logger.Fatal("%v", err)
+		}
+	}
+
+	defer res.Body.Close()
+	if !nullout {
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			logger.Fatal("%v", err)
+		}
+		fmt.Println(string(body))
+	}
+}

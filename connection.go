@@ -8,6 +8,7 @@ import (
 	"log"
 	"minimalist-http2/frame"
 	"minimalist-http2/hpack"
+	"time"
 )
 
 // A transport-layer connection between tow endpoints
@@ -110,7 +111,7 @@ func (conn *Connection) HandleSettings(settingsFrame *frame.SettingsFrame) {
 func (conn *Connection) ReadLoop() {
 	logger.Debug("stop the readLoop")
 	for {
-		frame, err := frame.ReadFrame(conn.RW, conn.Settings)
+		fr, err := frame.ReadFrame(conn.RW, conn.Settings)
 		if err != nil {
 			logger.Error("connection.ReadLoop error,err: %v", err)
 			h2Error, ok := err.(*H2Error)
@@ -119,17 +120,105 @@ func (conn *Connection) ReadLoop() {
 			}
 			break
 		}
-		if frame != nil {
-			logger.Notice("%v %v", color.Green("recv"), util.Indent(frame.String()))
+		if fr != nil {
+			logger.Notice("%v %v", color.Green("recv"), util.Indent(fr.String()))
 		}
 
-		streamID := frame.Header().StreamID
-		types := frame.Header().Type
+		streamID := fr.Header().StreamID
+		types := fr.Header().Type
 
 		if streamID == 0 {
+			if types == frame.DataFrameType ||
+				types == frame.HeadersFrameType ||
+				types == frame.PriorityFrameType ||
+				types == frame.RstStreamFrameType ||
+				types == frame.PushPromiseFrameType ||
+				types == frame.ContinuationFrameType {
 
+				msg := fmt.Sprintf("%s Frame for stream ID 0", types)
+				logger.Error("%v", msg)
+				conn.GoAway(0, &H2Error{PROTOCOL_ERROR, msg})
+				break
+			}
+
+			if types == frame.SettingsFrameType {
+				settingsFrame, ok := fr.(*frame.SettingsFrame)
+				if !ok {
+					logger.Error("invalid settings frame %v", fr)
+					return
+				}
+				conn.HandleSettings(settingsFrame)
+			}
+
+			if types == frame.WindowUpdateFrameType {
+				windowUpdateFrame, ok := fr.(*frame.WindowUpdateFrame)
+				if !ok {
+					logger.Error("invalid window update frame %v", fr)
+					return
+				}
+				logger.Debug("connection window size increment(%v)", int32(windowUpdateFrame.WindowSizeIncrement))
+				conn.Window.UpdatePeer(int32(windowUpdateFrame.WindowSizeIncrement))
+			}
+
+			// respond to PING
+			if types == frame.PingFrameType {
+				if fr.Header().Flags != frame.PING_ACK {
+					conn.PingACK([]byte("pong    ")) // 8 byte
+				}
+				continue
+			}
+
+			if types == frame.GoAwayFrameType {
+				logger.Debug("stop conn.ReadLoop() by GOAWAY")
+				break
+			}
+		}
+		if streamID > 0 {
+			if types == frame.SettingsFrameType ||
+				types == frame.PingFrameType ||
+				types == frame.GoAwayFrameType {
+				msg := fmt.Sprintf("%s Frame for stream Id not 0", types)
+				logger.Error("%v", msg)
+				conn.GoAway(0, &H2Error{PROTOCOL_ERROR, msg})
+				break
+			}
+
+			if types == frame.DataFrameType {
+				length := int32(fr.Header().Length)
+				conn.WindowConsume(length)
+			}
+
+			stream, ok := conn.Streams[streamID]
+			if !ok {
+				stream = conn.NewStream(streamID)
+				conn.Streams[streamID] = stream
+
+				if streamID > conn.LastStreamID {
+					conn.LastStreamID = streamID
+				}
+			}
+
+			err = stream.ChangeState(fr, RECV)
+			if err != nil {
+				logger.Error("%v", err)
+				h2Error, ok := err.(*H2Error)
+				if ok {
+					conn.GoAway(0, h2Error)
+				}
+				break
+			}
+
+			if stream.State == CLOSED {
+				go func(streamID uint32) {
+					<-time.After(1 * time.Second)
+					logger.Info("remove stream(%d) from conn.Streams[]", streamID)
+					conn.Streams[streamID] = nil
+				}(streamID)
+			}
+			stream.ReadChan <- fr
 		}
 	}
+	logger.Debug("stop the readLoop")
 }
 
 func (conn *Connection) WriteLoop() error {

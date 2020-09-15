@@ -86,3 +86,16 @@ func (stream *Stream) Close() {
 	logger.Info("close stream(%v).ReadChan", stream.ID)
 	close(stream.ReadChan)
 }
+
+// Encode Header using HPACK
+func (stream *Stream) EncodeHeader(header http.Header) []byte {
+	headerList := hpack.ToHeaderList(header)
+	logger.Trace("sending header list %s", headerList)
+	return stream.HPackContext.Encode(*headerList)
+}
+
+// Decode Header using HPACK
+func (stream *Stream) DecodeHeader(headerBlockFragment []byte) http.Header {
+	stream.HPackContext.Decode(headerBlockFragment)
+	return stream.HPackContext.ES.ToHeader()
+}
