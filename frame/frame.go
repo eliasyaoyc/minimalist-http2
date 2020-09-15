@@ -1,6 +1,8 @@
 package frame
 
 import (
+	"fmt"
+	"github.com/Jxck/logger"
 	"io"
 	"minimalist-http2"
 	"net/http"
@@ -93,9 +95,23 @@ func (f Flag) String() string {
 
 type Frame interface {
 	Write(w io.Writer) error
-	Read(r io.Writer) error
+	Read(r io.Reader) error
 	Header() *HeaderFrame
 	String() string
+}
+
+// map of FrameType and FrameInitializer
+var FrameMap = map[FrameType](func(*HeaderFrame) Frame){
+	DataFrameType:         func(fh *HeaderFrame) Frame { return &DataFrame{HeaderFrame: fh} },
+	HeadersFrameType:      func(fh *HeaderFrame) Frame { return &HeadersFrame{HeaderFrame: fh} },
+	PriorityFrameType:     func(fh *HeaderFrame) Frame { return &PriorityFrame{HeaderFrame: fh} },
+	RstStreamFrameType:    func(fh *HeaderFrame) Frame { return &RstStreamFrame{HeaderFrame: fh} },
+	SettingsFrameType:     func(fh *HeaderFrame) Frame { return &SettingsFrame{HeaderFrame: fh} },
+	PushPromiseFrameType:  func(fh *HeaderFrame) Frame { return &PushPromiseFrame{HeaderFrame: fh} },
+	PingFrameType:         func(fh *HeaderFrame) Frame { return &PingFrame{HeaderFrame: fh} },
+	GoAwayFrameType:       func(fh *HeaderFrame) Frame { return &GoAwayFrame{HeaderFrame: fh} },
+	WindowUpdateFrameType: func(fh *HeaderFrame) Frame { return &WindowUpdateFrame{HeaderFrame: fh} },
+	ContinuationFrameType: func(fh *HeaderFrame) Frame { return &ContinuationFrame{HeaderFrame: fh} },
 }
 
 // Frame Header
@@ -131,11 +147,7 @@ func (f *HeaderFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *HeaderFrame) Read(r io.Writer) error {
-	panic("implement me")
-}
-
-func (f *HeaderFrame) Header() *HeaderFrame {
+func (f *HeaderFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -182,7 +194,7 @@ func (f *DataFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *DataFrame) Read(r io.Writer) error {
+func (f *DataFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -246,7 +258,7 @@ func (f *HeadersFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *HeadersFrame) Read(r io.Writer) error {
+func (f *HeadersFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -288,7 +300,7 @@ func (f *PriorityFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *PriorityFrame) Read(r io.Writer) error {
+func (f *PriorityFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -323,7 +335,7 @@ func (f *RstStreamFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *RstStreamFrame) Read(r io.Writer) error {
+func (f *RstStreamFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -360,6 +372,48 @@ const (
 	DEFAULT_MAX_FRAME_SIZE               = 16384
 	DEFAULT_MAX_HEADER_LIST_SIZE         = 2<<30 - 1
 )
+
+func (s SettingsID) String() string {
+	m := map[SettingsID]string{
+		0x1: "SETTINGS_HEADER_TABLE_SIZE",
+		0x2: "SETTINGS_ENABLE_PUSH",
+		0x3: "SETTINGS_MAX_CONCURRENT_STREAMS",
+		0x4: "SETTINGS_INITIAL_WINDOW_SIZE",
+		0x5: "SETTINGS_MAX_FRAME_SIZE",
+		0x6: "SETTINGS_MAX_HEADER_LIST_SIZE",
+	}
+	return fmt.Sprintf("%s(%d)", m[s], s)
+}
+
+type SettingsFrame struct {
+	*HeaderFrame
+	Settings map[SettingsID]int32
+}
+
+func NewSettingsFrame(flags Flag, streamID uint32, settings map[SettingsID]int32) *SettingsFrame {
+	length := uint32(6 * len(settings))
+
+	return &SettingsFrame{
+		HeaderFrame: NewFrameHeader(length, SettingsFrameType, flags, streamID),
+		Settings:    settings,
+	}
+}
+
+func (f *SettingsFrame) Write(w io.Writer) error {
+	panic("implement me")
+}
+
+func (f *SettingsFrame) Read(r io.Reader) error {
+	panic("implement me")
+}
+
+func (f *SettingsFrame) Header() *HeaderFrame {
+	return f.HeaderFrame
+}
+
+func (f *SettingsFrame) String() string {
+	panic("implement me")
+}
 
 // PUSH_PROMISE  section 6.6
 //  +---------------+
@@ -402,7 +456,7 @@ func (f *PushPromiseFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *PushPromiseFrame) Read(r io.Writer) error {
+func (f *PushPromiseFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -437,7 +491,7 @@ func (f *PingFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *PingFrame) Read(r io.Writer) error {
+func (f *PingFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -480,7 +534,7 @@ func (f *GoAwayFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *GoAwayFrame) Read(r io.Writer) error {
+func (f *GoAwayFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -515,7 +569,7 @@ func (f *WindowUpdateFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *WindowUpdateFrame) Read(r io.Writer) error {
+func (f *WindowUpdateFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -549,7 +603,7 @@ func (f *ContinuationFrame) Write(w io.Writer) error {
 	panic("implement me")
 }
 
-func (f *ContinuationFrame) Read(r io.Writer) error {
+func (f *ContinuationFrame) Read(r io.Reader) error {
 	panic("implement me")
 }
 
@@ -559,4 +613,27 @@ func (f *ContinuationFrame) Header() *HeaderFrame {
 
 func (f *ContinuationFrame) String() string {
 	panic("implement me")
+}
+
+func ReadFrame(r io.Reader, settings map[SettingsID]int32) (frame Frame, err error) {
+	hf := new(HeaderFrame)
+	hf.MaxFrameSize = settings[SETTINGS_MAX_FRAME_SIZE]
+	hf.MaxHeaderListSize = settings[SETTINGS_MAX_HEADER_LIST_SIZE]
+
+	err = hf.Read(r)
+	if err != nil {
+		logger.Error("frame.ReadFrame error,err: %v", err)
+		return nil, err
+	}
+
+	newFrame, ok := FrameMap[hf.Type]
+	if !ok {
+		return nil, fmt.Errorf("unknown type: %v", hf.Type)
+	}
+	frame = newFrame(hf)
+	err = frame.Read(r)
+	if err != nil {
+		return nil, err
+	}
+	return frame, nil
 }
